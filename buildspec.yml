@@ -3,7 +3,7 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodejs: ^22.14.00
+      nodejs: 14
     commands:
       - echo "Instalando dependencias..."
       - npm install
