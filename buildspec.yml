@@ -1,5 +1,9 @@
 version: 0.2
 
+env:
+  variables:
+    ImageName: "simple-docker-service"
+
 phases:
   install:
     runtime-versions:
@@ -7,10 +11,31 @@ phases:
     commands:
       - echo "Instalando dependencias..."
       - npm install
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 812115318701.dkr.ecr.us-east-2.amazonaws.com
+      - REPOSITORY_URI=812115318701.dkr.ecr.us-east-2.amazonaws.com/$ImageName
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
     commands:
-      - echo "Aplicación construida correctamente"
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $ImageName .
+      - docker tag $ImageName:latest $REPOSITORY_URI:latest
+      - docker tag $ImageName:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '{"ImageURI":"%s"}' $REPOSITORY_URI:$IMAGE_TAG > imageDefinitions.json
 
 artifacts:
   files:
-    - '**/*'
+    - imageDefinitions.json
+    - appspec.yml
+    - scripts/*
